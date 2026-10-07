@@ -1,0 +1,1005 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="description" content="Craig 的個人會議排程：今天總覽、週曆、月曆、表格，附時間衝突提示與找空檔。">
+<title>Craig 的會議桌</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%232383e2' stroke-width='2' stroke-linecap='round'%3E%3Crect x='3.5' y='5' width='17' height='15' rx='2'/%3E%3Cpath d='M3.5 10h17M8 3v4M16 3v4'/%3E%3C/svg%3E">
+<style>body{margin:0}img{max-width:100%}[hidden]{display:none!important}</style>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&family=Noto+Serif+TC:wght@700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: Notion 式雙欄——左側淺灰側欄導覽，右側白紙頁面；檢視分頁切換 今天／週／月／表格，點會議開啟右側 peek 編輯面板 */
+:root{
+  --bg:#ffffff; --side:#f7f7f5; --fg:#2f2d29; --muted:#78756f; --faint:#a9a59e;
+  --line:#ebeae7; --line-strong:#dcdad5; --hover:rgba(55,53,47,.06); --active:rgba(55,53,47,.1);
+  --accent:#2383e2; --accent-soft:#e8f2fc; --danger:#d44c47; --danger-soft:#fdeceb;
+  --now:#e5484d; --panel:#ffffff; --scrim:rgba(15,15,15,.28);
+  --shadow:0 0 0 1px rgba(15,15,15,.05),0 3px 6px rgba(15,15,15,.08),0 9px 24px rgba(15,15,15,.14);
+  --blue-bg:#e3eef8; --blue-fg:#1d5a8a; --orange-bg:#fbeadb; --orange-fg:#8a4a14;
+  --green-bg:#e2f1e7; --green-fg:#256b40; --purple-bg:#eee6f6; --purple-fg:#5f3a8a;
+  --pink-bg:#f8e4ee; --pink-fg:#8c2f5c; --yellow-bg:#fbf0d2; --yellow-fg:#7a5a0e;
+  --gray-bg:#efeeec; --gray-fg:#66625c;
+  --font-ui:"Noto Sans TC",-apple-system,"PingFang TC","Microsoft JhengHei",sans-serif;
+  --font-title:"Noto Serif TC","Songti TC",serif;
+  --font-mono:"IBM Plex Mono",ui-monospace,"SF Mono",Menlo,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#191919; --side:#202020; --fg:#e3e2df; --muted:#9b9893; --faint:#6f6c67;
+  --line:#2f2f2f; --line-strong:#3a3a3a; --hover:rgba(255,255,255,.055); --active:rgba(255,255,255,.1);
+  --accent:#4a9cf0; --accent-soft:#1d3247; --danger:#f0716b; --danger-soft:#3b2120;
+  --now:#ff6b6f; --panel:#202020; --scrim:rgba(0,0,0,.5);
+  --shadow:0 0 0 1px rgba(255,255,255,.07),0 3px 6px rgba(0,0,0,.3),0 9px 24px rgba(0,0,0,.45);
+  --blue-bg:#1e3346; --blue-fg:#9cc8ef; --orange-bg:#3d2a1b; --orange-fg:#f0b787;
+  --green-bg:#1d3527; --green-fg:#93d4a9; --purple-bg:#2f2440; --purple-fg:#c9a9ef;
+  --pink-bg:#3d2131; --pink-fg:#f0a2c8; --yellow-bg:#3a3018; --yellow-fg:#e9cd7c;
+  --gray-bg:#2d2d2c; --gray-fg:#b5b2ad; color-scheme:dark;
+}}
+:root[data-theme="dark"]{
+  --bg:#191919; --side:#202020; --fg:#e3e2df; --muted:#9b9893; --faint:#6f6c67;
+  --line:#2f2f2f; --line-strong:#3a3a3a; --hover:rgba(255,255,255,.055); --active:rgba(255,255,255,.1);
+  --accent:#4a9cf0; --accent-soft:#1d3247; --danger:#f0716b; --danger-soft:#3b2120;
+  --now:#ff6b6f; --panel:#202020; --scrim:rgba(0,0,0,.5);
+  --shadow:0 0 0 1px rgba(255,255,255,.07),0 3px 6px rgba(0,0,0,.3),0 9px 24px rgba(0,0,0,.45);
+  --blue-bg:#1e3346; --blue-fg:#9cc8ef; --orange-bg:#3d2a1b; --orange-fg:#f0b787;
+  --green-bg:#1d3527; --green-fg:#93d4a9; --purple-bg:#2f2440; --purple-fg:#c9a9ef;
+  --pink-bg:#3d2131; --pink-fg:#f0a2c8; --yellow-bg:#3a3018; --yellow-fg:#e9cd7c;
+  --gray-bg:#2d2d2c; --gray-fg:#b5b2ad; color-scheme:dark;
+}
+html,body{height:100%}
+body{background:var(--bg);color:var(--fg);font-family:var(--font-ui);font-size:14px;line-height:1.5;-webkit-font-smoothing:antialiased}
+*{box-sizing:border-box}
+button,input,select,textarea{font:inherit;color:inherit}
+button{cursor:pointer;background:none;border:0;padding:0}
+:focus-visible{outline:2px solid var(--accent);outline-offset:1px;border-radius:4px}
+.mono{font-family:var(--font-mono);font-variant-numeric:tabular-nums}
+svg.i{width:16px;height:16px;flex:none;stroke:currentColor;fill:none;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round}
+
+.app{display:grid;grid-template-columns:248px minmax(0,1fr);height:100%}
+
+/* Sidebar */
+.sidebar{background:var(--side);border-right:1px solid var(--line);display:flex;flex-direction:column;min-height:0;overflow-y:auto;padding:10px 8px 12px}
+.ws{display:flex;align-items:center;gap:10px;padding:6px 8px;border-radius:6px;margin-bottom:6px}
+.ws-mark{width:24px;height:24px;border-radius:5px;background:var(--fg);color:var(--bg);display:grid;place-items:center;font-family:var(--font-title);font-size:13px}
+.ws-name{font-weight:500;font-size:14px}
+.ws-sub{font-size:11.5px;color:var(--muted)}
+.nav-item{display:flex;align-items:center;gap:9px;width:100%;padding:5px 8px;border-radius:6px;color:var(--muted);font-weight:500;font-size:13.5px;text-align:left}
+.nav-item:hover{background:var(--hover)}
+.nav-item.on{background:var(--active);color:var(--fg)}
+.nav-item .count{margin-left:auto;font-size:11.5px;color:var(--faint);font-weight:400}
+.side-label{font-size:11.5px;color:var(--faint);font-weight:500;padding:16px 8px 4px;letter-spacing:.02em}
+.dot{width:8px;height:8px;border-radius:2px;flex:none}
+.side-up{display:flex;flex-direction:column;gap:1px}
+.side-up button{display:grid;grid-template-columns:auto 1fr;gap:0 9px;padding:5px 8px;border-radius:6px;text-align:left}
+.side-up button:hover{background:var(--hover)}
+.side-up .t{font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--fg)}
+.side-up .w{font-size:11.5px;color:var(--muted);grid-column:2}
+.side-foot{margin-top:auto;padding-top:14px;display:flex;flex-direction:column;gap:2px}
+.sync{display:flex;align-items:center;gap:7px;font-size:11.5px;color:var(--faint);padding:6px 8px}
+.sync i{width:6px;height:6px;border-radius:50%;background:var(--faint)}
+.sync.cloud i{background:#3aa66a}
+
+/* Main */
+.main{min-width:0;overflow-y:auto;display:flex;flex-direction:column}
+.topbar{position:sticky;top:0;z-index:5;background:var(--bg);display:flex;align-items:center;gap:8px;height:45px;padding:0 14px;font-size:13.5px}
+.crumb{display:flex;align-items:center;gap:6px;color:var(--muted);min-width:0}
+.crumb b{color:var(--fg);font-weight:500;white-space:nowrap}
+.menu-btn{display:none}
+.icon-btn{display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;border-radius:6px;color:var(--muted)}
+.icon-btn:hover{background:var(--hover);color:var(--fg)}
+.topbar .spacer{flex:1}
+.page{width:100%;max-width:1180px;margin:0 auto;padding:28px 56px 80px}
+.page-icon{width:56px;height:56px;border-radius:10px;background:var(--accent-soft);color:var(--accent);display:grid;place-items:center;margin-bottom:14px}
+.page-icon svg{width:30px;height:30px;stroke-width:1.5}
+h1{font-family:var(--font-title);font-size:36px;line-height:1.2;margin:0 0 6px;font-weight:700;letter-spacing:.01em;text-wrap:balance}
+.page-desc{color:var(--muted);margin:0 0 22px;max-width:62ch}
+
+.viewbar{display:flex;align-items:center;gap:6px;border-bottom:1px solid var(--line);margin-bottom:18px;flex-wrap:wrap}
+.tabs{display:flex;gap:2px;overflow-x:auto;scrollbar-width:none}
+.tab{display:flex;align-items:center;gap:6px;padding:6px 9px 8px;color:var(--muted);font-weight:500;font-size:13.5px;border-bottom:2px solid transparent;margin-bottom:-1px;white-space:nowrap;border-radius:6px 6px 0 0}
+.tab:hover{color:var(--fg);background:var(--hover)}
+.tab.on{color:var(--fg);border-bottom-color:var(--fg)}
+.viewbar .spacer{flex:1}
+.tools{display:flex;align-items:center;gap:4px;padding-bottom:6px;flex-wrap:wrap}
+.search{display:flex;align-items:center;gap:6px;padding:0 8px;height:28px;border-radius:6px;color:var(--muted)}
+.search:focus-within{background:var(--hover)}
+.search input{border:0;background:none;outline:none;width:130px;font-size:13.5px;color:var(--fg)}
+.btn{display:inline-flex;align-items:center;gap:6px;height:28px;padding:0 10px;border-radius:6px;font-size:13.5px;font-weight:500;color:var(--muted)}
+.btn:hover{background:var(--hover);color:var(--fg)}
+.btn.primary{background:var(--accent);color:#fff}
+.btn.primary:hover{filter:brightness(1.07);background:var(--accent);color:#fff}
+.btn.ghost-border{border:1px solid var(--line-strong);color:var(--fg)}
+.btn.danger{color:var(--danger)}
+.btn.danger:hover{background:var(--danger-soft);color:var(--danger)}
+
+.filters{display:flex;align-items:center;gap:6px;margin:-6px 0 16px;flex-wrap:wrap}
+.chip{display:inline-flex;align-items:center;gap:6px;height:26px;padding:0 10px;border-radius:999px;border:1px solid var(--line-strong);font-size:12.5px;color:var(--muted)}
+.chip:hover{background:var(--hover)}
+.chip.on{background:var(--accent-soft);color:var(--accent);border-color:transparent}
+
+.datenav{display:flex;align-items:center;gap:6px;margin-bottom:12px;flex-wrap:wrap}
+.datenav h2{font-size:18px;font-weight:700;margin:0 8px 0 0}
+
+/* Tags */
+.tag{display:inline-flex;align-items:center;height:20px;padding:0 6px;border-radius:4px;font-size:12px;white-space:nowrap;line-height:1}
+.c-blue{background:var(--blue-bg);color:var(--blue-fg)}
+.c-orange{background:var(--orange-bg);color:var(--orange-fg)}
+.c-green{background:var(--green-bg);color:var(--green-fg)}
+.c-purple{background:var(--purple-bg);color:var(--purple-fg)}
+.c-pink{background:var(--pink-bg);color:var(--pink-fg)}
+.c-yellow{background:var(--yellow-bg);color:var(--yellow-fg)}
+.c-gray{background:var(--gray-bg);color:var(--gray-fg)}
+.d-blue{background:var(--blue-fg)}.d-orange{background:var(--orange-fg)}.d-green{background:var(--green-fg)}.d-purple{background:var(--purple-fg)}.d-pink{background:var(--pink-fg)}
+.status{display:inline-flex;align-items:center;gap:5px;font-size:12px;height:20px;padding:0 7px 0 6px;border-radius:999px;white-space:nowrap}
+.status::before{content:"";width:6px;height:6px;border-radius:50%;background:currentColor}
+.ex{font-size:10.5px;color:var(--faint);border:1px dashed var(--line-strong);border-radius:4px;padding:0 4px;line-height:16px;white-space:nowrap}
+.warn{color:var(--danger);font-size:12px;display:inline-flex;align-items:center;gap:4px;white-space:nowrap}
+.warn svg{width:13px;height:13px}
+
+/* Today */
+.today{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(0,1fr);gap:28px}
+.sec-title{font-size:12px;color:var(--muted);font-weight:500;margin:0 0 10px;letter-spacing:.03em;display:flex;align-items:center;gap:8px}
+.timeline{display:flex;flex-direction:column;border-top:1px solid var(--line)}
+.tl-row{display:grid;grid-template-columns:92px minmax(0,1fr);gap:14px;padding:12px 6px;border-bottom:1px solid var(--line);text-align:left;width:100%;border-radius:0}
+.tl-row:hover{background:var(--hover)}
+.tl-row.past{opacity:.55}
+.tl-row.live{background:var(--accent-soft)}
+.tl-time{font-size:13px;color:var(--fg)}
+.tl-time small{display:block;color:var(--muted);font-size:11.5px}
+.tl-title{font-weight:500;font-size:15px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.tl-meta{display:flex;gap:6px 12px;flex-wrap:wrap;color:var(--muted);font-size:12.5px;margin-top:4px;align-items:center}
+.tl-meta span{display:inline-flex;align-items:center;gap:4px}
+.tl-meta svg{width:13px;height:13px}
+.cancelled .tl-title, .cancelled .t, .cancelled.blk .bt{text-decoration:line-through}
+.next{border:1px solid var(--line);border-radius:10px;padding:16px 18px;margin-bottom:22px}
+.next .when{font-size:12.5px;color:var(--accent);font-weight:500;margin-bottom:4px}
+.next h3{margin:0 0 8px;font-size:18px;font-weight:700;line-height:1.35}
+.next .tl-meta{margin-top:0}
+.stats{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:1px;background:var(--line);border:1px solid var(--line);border-radius:10px;overflow:hidden;margin-bottom:22px}
+.stat{background:var(--bg);padding:12px 14px}
+.stat b{display:block;font-size:22px;font-weight:500;font-family:var(--font-mono);font-variant-numeric:tabular-nums;line-height:1.2}
+.stat span{font-size:12px;color:var(--muted)}
+.stat.alert b{color:var(--danger)}
+.bars{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:8px;align-items:end;height:120px;padding:0 2px;border-bottom:1px solid var(--line);margin-bottom:6px;background-image:linear-gradient(var(--line) 1px,transparent 1px);background-size:100% 30px;background-position:0 -1px}
+.bar{display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:100%;gap:3px}
+.bar i{display:block;width:100%;max-width:26px;background:var(--line-strong);border-radius:3px 3px 0 0;min-height:2px}
+.bar.today i{background:var(--accent)}
+.bar em{font-style:normal;font-size:10.5px;color:var(--muted);font-family:var(--font-mono)}
+.bar-labels{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:8px;text-align:center;font-size:11.5px;color:var(--muted)}
+.bar-labels .on{color:var(--accent);font-weight:700}
+.up-list{display:flex;flex-direction:column}
+.up-item{display:grid;grid-template-columns:44px minmax(0,1fr) auto;gap:12px;align-items:center;padding:8px 6px;border-radius:6px;text-align:left;width:100%}
+.up-item:hover{background:var(--hover)}
+.up-date{text-align:center;line-height:1.1}
+.up-date b{display:block;font-size:17px;font-family:var(--font-mono);font-weight:500}
+.up-date span{font-size:11px;color:var(--muted)}
+.up-item .t{font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.up-item .s{font-size:12px;color:var(--muted)}
+
+/* Week */
+.cal-wrap{overflow-x:auto;border:1px solid var(--line);border-radius:10px}
+.week{min-width:760px;display:grid;grid-template-columns:52px repeat(7,minmax(0,1fr))}
+.wk-head{position:sticky;top:0;background:var(--bg);border-bottom:1px solid var(--line);padding:8px 6px;text-align:center;font-size:12px;color:var(--muted)}
+.wk-head b{display:block;font-size:18px;color:var(--fg);font-weight:500;font-family:var(--font-mono)}
+.wk-head.today b{background:var(--now);color:#fff;border-radius:999px;width:30px;height:30px;line-height:30px;margin:0 auto}
+.wk-head.weekend{background:var(--side)}
+.gutter{position:relative;border-right:1px solid var(--line)}
+.gutter span{position:absolute;right:6px;transform:translateY(-50%);font-size:10.5px;color:var(--faint);font-family:var(--font-mono)}
+.daycol{position:relative;border-right:1px solid var(--line);background-image:linear-gradient(var(--line) 1px,transparent 1px);background-size:100% var(--h);cursor:copy}
+.daycol:last-child{border-right:0}
+.daycol.weekend{background-color:var(--side)}
+.blk{position:absolute;border-radius:5px;padding:3px 6px;font-size:12px;line-height:1.3;overflow:hidden;text-align:left;cursor:pointer;border-left:3px solid currentColor;box-shadow:0 0 0 1.5px var(--bg)}
+.blk:hover{filter:brightness(.97);z-index:3}
+.blk .bt{font-weight:500;display:block;color:var(--fg);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.blk .bm{font-size:11px;opacity:.85;font-family:var(--font-mono)}
+.blk.pending{background-image:repeating-linear-gradient(135deg,transparent 0 6px,rgba(127,127,127,.09) 6px 12px)}
+.blk.cancelled{opacity:.5}
+.blk.conflict{box-shadow:0 0 0 1.5px var(--danger)}
+.blk.past{opacity:.6}
+.nowline{position:absolute;left:-1px;right:0;height:2px;background:var(--now);z-index:4;pointer-events:none}
+.nowline::before{content:"";position:absolute;left:-4px;top:-4px;width:10px;height:10px;border-radius:50%;background:var(--now)}
+
+/* Month */
+.month{min-width:640px;display:grid;grid-template-columns:repeat(7,minmax(0,1fr))}
+.mh{padding:6px 8px;font-size:12px;color:var(--muted);border-bottom:1px solid var(--line);text-align:right}
+.mc{min-height:112px;border-right:1px solid var(--line);border-bottom:1px solid var(--line);padding:4px 5px 6px;display:flex;flex-direction:column;gap:2px;cursor:copy}
+.mc:nth-child(7n){border-right:0}
+.mc.out{background:var(--side)}
+.mc.out .mn{color:var(--faint)}
+.mn{align-self:flex-end;font-size:12px;font-family:var(--font-mono);width:24px;height:22px;display:grid;place-items:center;border-radius:999px;color:var(--muted)}
+.mc.today .mn{background:var(--now);color:#fff}
+.mchip{display:flex;align-items:center;gap:5px;font-size:12px;padding:1px 4px;border-radius:4px;text-align:left;width:100%;min-width:0}
+.mchip:hover{background:var(--hover)}
+.mchip .t{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mchip .mono{font-size:10.5px;color:var(--muted)}
+.more{font-size:11.5px;color:var(--muted);padding-left:4px;text-align:left}
+
+/* Table */
+.tbl-wrap{overflow-x:auto}
+table{border-collapse:collapse;width:100%;min-width:860px;font-size:13.5px}
+th{font-weight:400;color:var(--muted);text-align:left;font-size:12.5px;padding:7px 10px;border-bottom:1px solid var(--line);border-top:1px solid var(--line);white-space:nowrap}
+th+th,td+td{border-left:1px solid var(--line)}
+td{padding:7px 10px;border-bottom:1px solid var(--line);vertical-align:middle}
+tbody tr{cursor:pointer}
+tbody tr:hover td{background:var(--hover)}
+td.name{font-weight:500;min-width:220px}
+td.name .row-t{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+td.muted{color:var(--muted)}
+.grp td{background:var(--side);font-size:12px;color:var(--muted);font-weight:500;cursor:default}
+tbody tr.grp:hover td{background:var(--side)}
+.add-row{display:flex;align-items:center;gap:6px;color:var(--faint);padding:8px 10px;font-size:13.5px;width:100%;text-align:left}
+.add-row:hover{background:var(--hover);color:var(--muted)}
+
+/* Empty */
+.empty{border:1px dashed var(--line-strong);border-radius:10px;padding:36px 24px;text-align:center;color:var(--muted)}
+.empty h3{color:var(--fg);margin:0 0 6px;font-size:16px}
+.empty p{margin:0 auto 16px;max-width:42ch}
+.empty .row{display:flex;gap:8px;justify-content:center;flex-wrap:wrap}
+
+/* Peek panel */
+.scrim{position:fixed;inset:0;background:var(--scrim);z-index:20}
+.peek{position:fixed;top:0;right:0;bottom:0;width:min(560px,100%);background:var(--panel);box-shadow:var(--shadow);z-index:21;display:flex;flex-direction:column;animation:slide .18s ease-out}
+@keyframes slide{from{transform:translateX(24px);opacity:.4}to{transform:none;opacity:1}}
+.peek-top{display:flex;align-items:center;gap:4px;padding:calc(8px + env(safe-area-inset-top,0px)) 12px 8px}
+.peek-top .spacer{flex:1}
+.peek-body{overflow-y:auto;padding:12px 44px 40px;flex:1}
+.peek-title{width:100%;border:0;background:none;outline:none;font-family:var(--font-title);font-size:28px;font-weight:700;line-height:1.3;padding:0;margin:8px 0 16px;resize:none;overflow:hidden}
+.peek-title::placeholder{color:var(--faint)}
+.props{display:grid;grid-template-columns:120px minmax(0,1fr);gap:2px 8px;align-items:center;margin-bottom:12px}
+.pk{display:flex;align-items:center;gap:7px;color:var(--muted);font-size:13.5px;padding:5px 6px;min-height:32px}
+.pv{min-width:0;display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.pv input,.pv select{border:0;background:none;outline:none;padding:5px 6px;border-radius:5px;min-height:32px;font-size:13.5px;max-width:100%}
+.pv input:hover,.pv select:hover,.pv input:focus,.pv select:focus{background:var(--hover)}
+.pv input[type=text]{width:100%}
+.pv input[type=time]{font-family:var(--font-mono);font-variant-numeric:tabular-nums}
+.dur{font-size:12px;color:var(--muted)}
+.conflict-box{display:flex;gap:8px;align-items:flex-start;background:var(--danger-soft);color:var(--danger);padding:9px 12px;border-radius:7px;font-size:13px;margin-bottom:14px}
+.conflict-box svg{margin-top:2px}
+.hr{height:1px;background:var(--line);margin:14px 0 18px}
+.peek h4{font-size:15px;margin:0 0 8px;font-weight:700}
+.agenda{display:flex;flex-direction:column;gap:2px;margin-bottom:6px}
+.ag{display:flex;align-items:center;gap:8px;padding:2px 2px;border-radius:5px}
+.ag:hover{background:var(--hover)}
+.ag input[type=checkbox]{width:16px;height:16px;accent-color:var(--accent);flex:none}
+.ag input[type=text]{flex:1;border:0;background:none;outline:none;padding:4px 2px;min-width:0}
+.ag.done input[type=text]{text-decoration:line-through;color:var(--muted)}
+.ag .x{opacity:0;color:var(--faint)}
+.ag:hover .x,.ag:focus-within .x{opacity:1}
+.notes{width:100%;min-height:140px;border:0;background:none;outline:none;resize:vertical;line-height:1.7;padding:4px 2px;font-size:14px}
+.notes::placeholder,.ag input::placeholder{color:var(--faint)}
+.confirm{display:flex;align-items:center;gap:6px;font-size:13px;color:var(--danger)}
+
+/* Modal */
+.modal{position:fixed;left:50%;top:10vh;transform:translateX(-50%);width:min(520px,calc(100% - 32px));max-height:80vh;background:var(--panel);box-shadow:var(--shadow);border-radius:12px;z-index:22;display:flex;flex-direction:column}
+.modal-head{padding:16px 18px 10px;display:flex;align-items:center;gap:8px}
+.modal-head h3{margin:0;font-size:16px;flex:1}
+.modal-opts{display:flex;gap:14px;flex-wrap:wrap;padding:0 18px 12px;border-bottom:1px solid var(--line);font-size:13px;color:var(--muted)}
+.modal-opts label{display:flex;align-items:center;gap:6px}
+.modal-opts select{border:1px solid var(--line-strong);border-radius:6px;background:var(--bg);padding:3px 6px}
+.slots{overflow-y:auto;padding:8px 10px 14px}
+.slot-day{font-size:12px;color:var(--muted);font-weight:500;padding:10px 8px 4px}
+.slot{display:flex;align-items:center;gap:10px;padding:7px 8px;border-radius:6px}
+.slot:hover{background:var(--hover)}
+.slot .mono{font-size:13px}
+.slot .len{font-size:12px;color:var(--muted)}
+.slot .btn{margin-left:auto}
+
+.toast{position:fixed;left:50%;bottom:calc(24px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--fg);color:var(--bg);padding:8px 14px;border-radius:8px;font-size:13px;z-index:30;box-shadow:var(--shadow)}
+
+@media (max-width:900px){
+  .page{padding:20px 24px 72px}
+  .today{grid-template-columns:minmax(0,1fr)}
+}
+@media (max-width:760px){
+  .app{grid-template-columns:minmax(0,1fr)}
+  .sidebar{position:fixed;inset:0 auto 0 0;width:270px;z-index:25;transform:translateX(-100%);transition:transform .2s;padding-top:calc(10px + env(safe-area-inset-top,0px))}
+  .app.nav-open .sidebar{transform:none;box-shadow:var(--shadow)}
+  .menu-btn{display:inline-flex}
+  .page{padding:12px 16px 72px}
+  h1{font-size:28px}
+  .page-icon{width:44px;height:44px}
+  .page-icon svg{width:24px;height:24px}
+  .search input{width:96px}
+  .peek-body{padding:8px 18px 40px}
+  .props{grid-template-columns:96px minmax(0,1fr)}
+  .tl-row{grid-template-columns:72px minmax(0,1fr)}
+}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-cal" viewBox="0 0 24 24"><rect x="3.5" y="5" width="17" height="15" rx="2"/><path d="M3.5 10h17M8 3v4M16 3v4"/></symbol>
+  <symbol id="i-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2.5v2M12 19.5v2M2.5 12h2M19.5 12h2M5.3 5.3l1.4 1.4M17.3 17.3l1.4 1.4M5.3 18.7l1.4-1.4M17.3 6.7l1.4-1.4"/></symbol>
+  <symbol id="i-week" viewBox="0 0 24 24"><rect x="3.5" y="5" width="17" height="15" rx="2"/><path d="M3.5 10h17M9 10v10M15 10v10"/></symbol>
+  <symbol id="i-month" viewBox="0 0 24 24"><rect x="3.5" y="5" width="17" height="15" rx="2"/><path d="M3.5 10h17M3.5 15h17M9 10v10M15 10v10"/></symbol>
+  <symbol id="i-table" viewBox="0 0 24 24"><rect x="3.5" y="4.5" width="17" height="15" rx="2"/><path d="M3.5 9.5h17M3.5 14.5h17M9.5 9.5v10"/></symbol>
+  <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="6"/><path d="M20 20l-4.5-4.5"/></symbol>
+  <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+  <symbol id="i-left" viewBox="0 0 24 24"><path d="M15 6l-6 6 6 6"/></symbol>
+  <symbol id="i-right" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></symbol>
+  <symbol id="i-close" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></symbol>
+  <symbol id="i-dbl" viewBox="0 0 24 24"><path d="M6 6l6 6-6 6M13 6l6 6-6 6"/></symbol>
+  <symbol id="i-trash" viewBox="0 0 24 24"><path d="M4.5 7h15M9.5 7V4.5h5V7M6.5 7l1 13h9l1-13"/></symbol>
+  <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></symbol>
+  <symbol id="i-pin" viewBox="0 0 24 24"><path d="M12 21s-6.5-6-6.5-11a6.5 6.5 0 0113 0c0 5-6.5 11-6.5 11z"/><circle cx="12" cy="10" r="2.3"/></symbol>
+  <symbol id="i-people" viewBox="0 0 24 24"><circle cx="9" cy="8.5" r="3.2"/><path d="M3 19.5c.6-3.3 3-5 6-5s5.4 1.7 6 5"/><path d="M15.5 5.6a3 3 0 010 5.8M18 14.8c1.6.7 2.6 2.2 3 4.7"/></symbol>
+  <symbol id="i-tag" viewBox="0 0 24 24"><path d="M3.5 12.5V4.5h8l9 9-8 8z"/><circle cx="8" cy="9" r="1.3"/></symbol>
+  <symbol id="i-status" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M8.5 12.2l2.4 2.4 4.6-5"/></symbol>
+  <symbol id="i-warn" viewBox="0 0 24 24"><path d="M12 4l9 16H3z"/><path d="M12 10v4.5M12 17.3v.2"/></symbol>
+  <symbol id="i-gap" viewBox="0 0 24 24"><rect x="3.5" y="5" width="17" height="15" rx="2"/><path d="M3.5 10h17"/><path d="M9 15h6M12 12.5v5" /></symbol>
+  <symbol id="i-down" viewBox="0 0 24 24"><path d="M12 4v11M7.5 10.5L12 15l4.5-4.5M5 19.5h14"/></symbol>
+  <symbol id="i-up" viewBox="0 0 24 24"><path d="M12 15V4M7.5 8.5L12 4l4.5 4.5M5 19.5h14"/></symbol>
+  <symbol id="i-menu" viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16"/></symbol>
+  <symbol id="i-sparkle" viewBox="0 0 24 24"><path d="M12 4v4M12 16v4M4 12h4M16 12h4M6.5 6.5l2.5 2.5M15 15l2.5 2.5M6.5 17.5L9 15M15 9l2.5-2.5"/></symbol>
+</svg>
+
+<div class="app" id="app">
+  <aside class="sidebar" id="sidebar">
+    <div class="ws">
+      <div class="ws-mark">C</div>
+      <div><div class="ws-name">Craig 的會議桌</div><div class="ws-sub" id="ws-date"></div></div>
+    </div>
+    <button class="nav-item" data-act="focus-search"><svg class="i"><use href="#i-search"/></svg>搜尋</button>
+    <button class="nav-item" data-act="new"><svg class="i"><use href="#i-plus"/></svg>新增會議</button>
+    <div class="side-label">檢視</div>
+    <button class="nav-item" data-view="today"><svg class="i"><use href="#i-sun"/></svg>今天<span class="count" id="cnt-today"></span></button>
+    <button class="nav-item" data-view="week"><svg class="i"><use href="#i-week"/></svg>週曆<span class="count" id="cnt-week"></span></button>
+    <button class="nav-item" data-view="month"><svg class="i"><use href="#i-month"/></svg>月曆</button>
+    <button class="nav-item" data-view="table"><svg class="i"><use href="#i-table"/></svg>全部會議<span class="count" id="cnt-all"></span></button>
+    <div class="side-label">標籤</div>
+    <div id="side-tags"></div>
+    <div class="side-label">接下來</div>
+    <div class="side-up" id="side-up"></div>
+    <div class="side-foot">
+      <button class="nav-item" data-act="clear-examples" id="clear-ex" hidden><svg class="i"><use href="#i-trash"/></svg>清除範例會議</button>
+      <button class="nav-item" data-act="export"><svg class="i"><use href="#i-down"/></svg>匯出備份</button>
+      <button class="nav-item" data-act="import"><svg class="i"><use href="#i-up"/></svg>匯入備份</button>
+      <input type="file" id="import-file" accept="application/json,.json" hidden>
+      <div class="sync" id="sync"><i></i><span>載入中…</span></div>
+    </div>
+  </aside>
+
+  <main class="main" id="main">
+    <div class="topbar">
+      <button class="icon-btn menu-btn" data-act="toggle-nav" aria-label="開啟側欄"><svg class="i"><use href="#i-menu"/></svg></button>
+      <div class="crumb"><svg class="i"><use href="#i-cal"/></svg><span>會議桌</span><span>/</span><b id="crumb-view">今天</b></div>
+      <div class="spacer"></div>
+      <button class="btn primary" data-act="new"><svg class="i"><use href="#i-plus"/></svg>新增</button>
+    </div>
+    <div class="page">
+      <div class="page-icon"><svg class="i"><use href="#i-cal"/></svg></div>
+      <h1>會議排程</h1>
+      <p class="page-desc">所有會議集中在一頁。點日曆空白處即可排入新會議，紅框代表時間衝突，「找空檔」會列出還能排的時段。</p>
+
+      <div class="viewbar">
+        <div class="tabs" role="tablist">
+          <button class="tab" data-view="today"><svg class="i"><use href="#i-sun"/></svg>今天</button>
+          <button class="tab" data-view="week"><svg class="i"><use href="#i-week"/></svg>週曆</button>
+          <button class="tab" data-view="month"><svg class="i"><use href="#i-month"/></svg>月曆</button>
+          <button class="tab" data-view="table"><svg class="i"><use href="#i-table"/></svg>表格</button>
+        </div>
+        <div class="spacer"></div>
+        <div class="tools">
+          <label class="search"><svg class="i"><use href="#i-search"/></svg><input id="q" type="search" placeholder="搜尋會議、人名" autocomplete="off"></label>
+          <button class="btn" data-act="gaps"><svg class="i"><use href="#i-gap"/></svg>找空檔</button>
+        </div>
+      </div>
+      <div class="filters" id="filters"></div>
+      <section id="view" aria-live="polite"></section>
+    </div>
+  </main>
+</div>
+
+<div class="scrim" id="scrim" hidden></div>
+<aside class="peek" id="peek" hidden aria-label="會議詳情"></aside>
+<div class="modal" id="modal" hidden role="dialog" aria-label="找空檔"></div>
+<div class="toast" id="toast" hidden></div>
+
+<script>
+const TAGS = { '工作':'blue', '客戶':'orange', '團隊':'green', '面試':'purple', '個人':'pink' };
+const STATUS = { '已確認':'green', '待定':'yellow', '已取消':'gray' };
+const VIEWS = { today:'今天', week:'週曆', month:'月曆', table:'全部會議' };
+const WD = ['一','二','三','四','五','六','日'];
+const H = 52, DAY_START = 7, DAY_END = 22;
+const LS_KEY = 'meeting-desk:v1', LS_VIEW = 'meeting-desk:view';
+
+const pad = n => String(n).padStart(2,'0');
+const key = d => `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+const parseKey = k => { const [y,m,d] = k.split('-').map(Number); return new Date(y, m-1, d); };
+const addDays = (d,n) => { const x = new Date(d); x.setDate(x.getDate()+n); return x; };
+const dayOnly = d => new Date(d.getFullYear(), d.getMonth(), d.getDate());
+const startOfWeek = d => addDays(dayOnly(d), -((d.getDay()+6)%7));
+const toMin = t => { const [h,m] = String(t||'0:0').split(':').map(Number); return (h||0)*60 + (m||0); };
+const fromMin = m => `${pad(Math.floor(m/60))}:${pad(m%60)}`;
+const wd = d => WD[(d.getDay()+6)%7];
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const icon = (id, cls='i') => `<svg class="${cls}"><use href="#i-${id}"/></svg>`;
+const nowMin = () => { const n = new Date(); return n.getHours()*60 + n.getMinutes(); };
+const durLabel = mins => mins <= 0 ? '—' : (mins >= 60 ? `${Math.floor(mins/60)} 小時${mins%60 ? ` ${mins%60} 分` : ''}` : `${mins} 分鐘`);
+const uid = () => 'm' + Date.now().toString(36) + Math.random().toString(36).slice(2,7);
+
+const state = {
+  meetings: [], loaded: false, view: 'today', cursor: dayOnly(new Date()),
+  q: '', tag: '', tableFilter: 'upcoming', openId: null, confirmDel: false,
+  gapDur: 60, gapWeek: 0, gapWeekend: false
+};
+try { const v = localStorage.getItem(LS_VIEW); if (VIEWS[v]) state.view = v; } catch {}
+if (window.innerWidth < 760 && state.view === 'week') state.view = 'today';
+
+/* ---------- storage: cloud db when available, browser storage otherwise ---------- */
+const pending = new Map();   // id -> timer
+const store = {
+  mode: 'local', col: null,
+  async init() {
+    let db = null;
+    try { db = window.claude && window.claude.use ? await window.claude.use('db') : null; } catch { db = null; }
+    if (db) {
+      this.mode = 'db';
+      this.col = db.collection('meetings');
+      this.col.onSnapshot(snap => {
+        const local = new Map(state.meetings.map(m => [m.id, m]));
+        state.meetings = snap.docs.map(d => pending.has(d.id) && local.get(d.id) ? local.get(d.id) : { id: d.id, ...d.data() });
+        for (const id of pending.keys()) if (!state.meetings.some(m => m.id === id) && local.get(id)) state.meetings.push(local.get(id));
+        state.loaded = true; render();
+      }, () => { this.mode = 'local'; this.loadLocal(); toast('雲端連線中斷，改存於此瀏覽器'); });
+    } else this.loadLocal();
+  },
+  loadLocal() {
+    try { state.meetings = JSON.parse(localStorage.getItem(LS_KEY) || '[]'); } catch { state.meetings = []; }
+    state.loaded = true; render();
+  },
+  persistLocal() { try { localStorage.setItem(LS_KEY, JSON.stringify(state.meetings)); } catch {} },
+  async write(m) {
+    if (this.mode === 'db') {
+      const { id, ...rest } = m;
+      try { await this.col.doc(id).set(JSON.parse(JSON.stringify(rest))); }
+      catch (e) { toast(e && e.code === 'invalid_argument' ? '你只有檢視權限，無法修改會議' : e && e.code === 'quota_exceeded' ? '會議數量已達上限，請刪除舊會議' : '儲存失敗，請稍後再試'); }
+    } else this.persistLocal();
+  },
+  async remove(id) {
+    if (this.mode === 'db') { try { await this.col.doc(id).delete(); } catch { toast('刪除失敗，請稍後再試'); } }
+    else this.persistLocal();
+  }
+};
+function upsert(m, delay = 0) {
+  const i = state.meetings.findIndex(x => x.id === m.id);
+  if (i < 0) state.meetings.push(m); else state.meetings[i] = m;
+  clearTimeout(pending.get(m.id));
+  if (!delay) { pending.delete(m.id); store.write(m); return; }
+  pending.set(m.id, setTimeout(() => { pending.delete(m.id); store.write(state.meetings.find(x => x.id === m.id) || m); }, delay));
+}
+function flush(id) {
+  if (!pending.has(id)) return;
+  clearTimeout(pending.get(id)); pending.delete(id);
+  const m = state.meetings.find(x => x.id === id); if (m) store.write(m);
+}
+function removeMeeting(id) {
+  clearTimeout(pending.get(id)); pending.delete(id);
+  state.meetings = state.meetings.filter(m => m.id !== id);
+  store.remove(id);
+}
+
+/* ---------- derived data ---------- */
+const byTime = (a,b) => (a.date+a.start).localeCompare(b.date+b.start);
+function visible() {
+  const q = state.q.trim().toLowerCase();
+  return state.meetings.filter(m => (!state.tag || m.tag === state.tag) &&
+    (!q || [m.title, m.attendees, m.location, m.notes, m.tag].join(' ').toLowerCase().includes(q))).sort(byTime);
+}
+function conflictSet(list) {
+  const s = new Set(), by = {};
+  list.filter(m => m.status !== '已取消').forEach(m => (by[m.date] ??= []).push(m));
+  for (const d in by) {
+    const a = by[d].sort((x,y) => toMin(x.start) - toMin(y.start));
+    for (let i = 0; i < a.length; i++) for (let j = i+1; j < a.length; j++) {
+      if (toMin(a[j].start) < toMin(a[i].end)) { s.add(a[i].id); s.add(a[j].id); } else break;
+    }
+  }
+  return s;
+}
+const isPast = m => { const t = key(new Date()); return m.date < t || (m.date === t && toMin(m.end) <= nowMin()); };
+const isLive = m => m.date === key(new Date()) && toMin(m.start) <= nowMin() && nowMin() < toMin(m.end) && m.status !== '已取消';
+
+/* ---------- small renderers ---------- */
+const tagHtml = t => t ? `<span class="tag c-${TAGS[t]||'gray'}">${esc(t)}</span>` : '';
+const statusHtml = s => s ? `<span class="status c-${STATUS[s]||'gray'}">${esc(s)}</span>` : '';
+const exHtml = m => m.example ? `<span class="ex">範例</span>` : '';
+const warnHtml = (m, cs) => cs.has(m.id) ? `<span class="warn">${icon('warn')}時間衝突</span>` : '';
+function metaHtml(m) {
+  const bits = [];
+  if (m.location) bits.push(`<span>${icon('pin')}${esc(m.location)}</span>`);
+  if (m.attendees) bits.push(`<span>${icon('people')}${esc(m.attendees)}</span>`);
+  return bits.join('');
+}
+function relWhen(m) {
+  const today = dayOnly(new Date()), d = parseKey(m.date);
+  const diff = Math.round((d - today) / 864e5);
+  if (isLive(m)) return `進行中 · 還剩 ${durLabel(toMin(m.end) - nowMin())}`;
+  if (diff === 0) { const mins = toMin(m.start) - nowMin(); return `${durLabel(mins)}後開始 · ${m.start}`; }
+  if (diff === 1) return `明天 ${m.start}`;
+  return `${d.getMonth()+1} 月 ${d.getDate()} 日（${wd(d)}）${m.start}`;
+}
+
+/* ---------- views ---------- */
+function emptyState() {
+  return `<div class="empty">
+    <h3>還沒有任何會議</h3>
+    <p>按「新增會議」排入第一場，或在週曆上點一下空白時段。想先看看效果，可以載入一組範例。</p>
+    <div class="row"><button class="btn primary" data-act="new">${icon('plus')}新增會議</button>
+    <button class="btn ghost-border" data-act="load-examples">${icon('sparkle')}載入範例會議</button></div></div>`;
+}
+
+function renderToday(list, cs) {
+  const now = new Date(), tk = key(now);
+  const todays = list.filter(m => m.date === tk);
+  const next = list.filter(m => m.status !== '已取消' && !isPast(m))[0];
+  const ws = startOfWeek(now), we = key(addDays(ws, 6)), wsk = key(ws);
+  const week = state.meetings.filter(m => m.date >= wsk && m.date <= we && m.status !== '已取消');
+  const hours = [...Array(7)].map((_,i) => {
+    const k = key(addDays(ws,i));
+    return week.filter(m => m.date === k).reduce((s,m) => s + Math.max(0, toMin(m.end) - toMin(m.start)), 0) / 60;
+  });
+  const maxH = Math.max(4, ...hours);
+  const totalH = hours.reduce((a,b) => a+b, 0);
+  const pendingCnt = week.filter(m => m.status === '待定').length;
+  const weekConf = [...conflictSet(week)].length;
+  const upcoming = list.filter(m => m.date > tk && m.date <= key(addDays(now, 14)) && m.status !== '已取消').slice(0, 6);
+
+  const tl = todays.length ? todays.map(m => `
+    <button class="tl-row ${isPast(m)?'past':''} ${isLive(m)?'live':''} ${m.status==='已取消'?'cancelled':''}" data-open="${m.id}">
+      <div class="tl-time mono">${esc(m.start)}<small>${esc(m.end)}</small></div>
+      <div><div class="tl-title">${esc(m.title || '未命名會議')} ${tagHtml(m.tag)} ${m.status!=='已確認'?statusHtml(m.status):''} ${warnHtml(m,cs)} ${exHtml(m)}</div>
+      <div class="tl-meta">${metaHtml(m)}</div></div>
+    </button>`).join('')
+    : `<div class="empty" style="padding:24px"><p style="margin-bottom:12px">今天沒有排會議。</p><button class="btn ghost-border" data-act="new">${icon('plus')}排一場</button></div>`;
+
+  return `<div class="today">
+    <div>
+      <div class="sec-title">${now.getMonth()+1} 月 ${now.getDate()} 日 星期${wd(now)} · ${todays.filter(m=>m.status!=='已取消').length} 場會議</div>
+      <div class="timeline">${tl}</div>
+      ${upcoming.length ? `<div class="sec-title" style="margin-top:28px">接下來兩週</div><div class="up-list">${upcoming.map(m => { const d = parseKey(m.date); return `
+        <button class="up-item" data-open="${m.id}"><div class="up-date"><b>${d.getDate()}</b><span>週${wd(d)}</span></div>
+        <div style="min-width:0"><div class="t">${esc(m.title||'未命名會議')}</div><div class="s mono">${esc(m.start)}–${esc(m.end)}${m.location?` · <span style="font-family:var(--font-ui)">${esc(m.location)}</span>`:''}</div></div>
+        <div style="display:flex;gap:6px;align-items:center">${warnHtml(m,cs)}${tagHtml(m.tag)}</div></button>`; }).join('')}</div>` : ''}
+    </div>
+    <div>
+      ${next ? `<div class="next"><div class="when">${relWhen(next)}</div><h3>${esc(next.title||'未命名會議')}</h3>
+        <div class="tl-meta">${tagHtml(next.tag)}${metaHtml(next)}</div>
+        <div style="margin-top:12px"><button class="btn ghost-border" data-open="${next.id}">查看議程</button></div></div>` : ''}
+      <div class="sec-title">本週概況</div>
+      <div class="stats">
+        <div class="stat"><b>${week.length}</b><span>場會議</span></div>
+        <div class="stat"><b>${totalH % 1 ? totalH.toFixed(1) : totalH}</b><span>小時會議時間</span></div>
+        <div class="stat"><b>${pendingCnt}</b><span>場待確認</span></div>
+        <div class="stat ${weekConf?'alert':''}"><b>${weekConf}</b><span>場時間衝突</span></div>
+      </div>
+      <div class="sec-title">每日會議時數</div>
+      <div class="bars">${hours.map((h,i) => `<div class="bar ${key(addDays(ws,i))===tk?'today':''}"><em>${h ? (h%1?h.toFixed(1):h) : ''}</em><i style="height:${h/maxH*100}%"></i></div>`).join('')}</div>
+      <div class="bar-labels">${WD.map((w,i) => `<span class="${key(addDays(ws,i))===tk?'on':''}">${w}</span>`).join('')}</div>
+    </div>
+  </div>`;
+}
+
+function layoutLanes(items) {
+  const out = new Map(); let cluster = [], end = -1;
+  const flushC = () => {
+    const laneEnds = [];
+    for (const m of cluster) {
+      const s = toMin(m.start), e = Math.max(toMin(m.end), s + 20);
+      let l = laneEnds.findIndex(x => x <= s);
+      if (l < 0) { l = laneEnds.length; laneEnds.push(e); } else laneEnds[l] = e;
+      out.set(m.id, { lane: l });
+    }
+    for (const m of cluster) out.get(m.id).n = laneEnds.length;
+    cluster = []; end = -1;
+  };
+  for (const m of [...items].sort((a,b) => toMin(a.start) - toMin(b.start))) {
+    const s = toMin(m.start);
+    if (cluster.length && s >= end) flushC();
+    cluster.push(m); end = Math.max(end, Math.max(toMin(m.end), s + 20));
+  }
+  if (cluster.length) flushC();
+  return out;
+}
+
+function navHtml(label) {
+  return `<div class="datenav"><h2>${label}</h2>
+    <button class="icon-btn" data-act="prev" aria-label="上一段">${icon('left')}</button>
+    <button class="btn ghost-border" data-act="go-today">今天</button>
+    <button class="icon-btn" data-act="next" aria-label="下一段">${icon('right')}</button></div>`;
+}
+
+function renderWeek(list, cs) {
+  const ws = startOfWeek(state.cursor), days = [...Array(7)].map((_,i) => addDays(ws,i)), tk = key(new Date());
+  const we = days[6];
+  const label = ws.getMonth() === we.getMonth()
+    ? `${ws.getFullYear()} 年 ${ws.getMonth()+1} 月 ${ws.getDate()}–${we.getDate()} 日`
+    : `${ws.getMonth()+1} 月 ${ws.getDate()} 日 – ${we.getMonth()+1} 月 ${we.getDate()} 日`;
+  const hrs = DAY_END - DAY_START, colH = hrs * H;
+  let html = navHtml(label) + `<div class="cal-wrap" id="calwrap"><div class="week" style="--h:${H}px">`;
+  html += `<div class="wk-head"></div>` + days.map((d,i) => `<div class="wk-head ${key(d)===tk?'today':''} ${i>4?'weekend':''}">週${WD[i]}<b>${d.getDate()}</b></div>`).join('');
+  html += `<div class="gutter" style="height:${colH}px">${[...Array(hrs)].map((_,i) => i ? `<span style="top:${i*H}px">${pad(DAY_START+i)}:00</span>` : '').join('')}</div>`;
+  days.forEach((d,i) => {
+    const k = key(d), items = list.filter(m => m.date === k);
+    const lanes = layoutLanes(items);
+    html += `<div class="daycol ${i>4?'weekend':''}" data-day="${k}" style="height:${colH}px">`;
+    for (const m of items) {
+      const s = Math.max(toMin(m.start), DAY_START*60), e = Math.min(Math.max(toMin(m.end), toMin(m.start)+20), DAY_END*60);
+      if (e <= DAY_START*60 || s >= DAY_END*60) continue;
+      const { lane, n } = lanes.get(m.id);
+      const top = (s - DAY_START*60) / 60 * H, height = Math.max((e - s) / 60 * H - 2, 18);
+      const c = TAGS[m.tag] || 'gray';
+      html += `<button class="blk c-${c} ${m.status==='待定'?'pending':''} ${m.status==='已取消'?'cancelled':''} ${cs.has(m.id)?'conflict':''} ${isPast(m)?'past':''}" data-open="${m.id}"
+        style="top:${top}px;height:${height}px;left:calc(${lane/n*100}% + 2px);width:calc(${100/n}% - 4px)" title="${esc(m.title)} ${esc(m.start)}–${esc(m.end)}">
+        <span class="bt">${esc(m.title||'未命名會議')}</span>${height > 30 ? `<span class="bm">${esc(m.start)}–${esc(m.end)}</span>` : ''}</button>`;
+    }
+    if (k === tk) { const nm = nowMin(); if (nm >= DAY_START*60 && nm <= DAY_END*60) html += `<div class="nowline" style="top:${(nm-DAY_START*60)/60*H}px"></div>`; }
+    html += `</div>`;
+  });
+  return html + `</div></div>`;
+}
+
+function renderMonth(list, cs) {
+  const c = state.cursor, first = new Date(c.getFullYear(), c.getMonth(), 1), gs = startOfWeek(first), tk = key(new Date());
+  const weeks = Math.ceil(((first.getDay()+6)%7 + new Date(c.getFullYear(), c.getMonth()+1, 0).getDate()) / 7);
+  let html = navHtml(`${c.getFullYear()} 年 ${c.getMonth()+1} 月`) + `<div class="cal-wrap"><div class="month">`;
+  html += WD.map(w => `<div class="mh">週${w}</div>`).join('');
+  for (let i = 0; i < weeks*7; i++) {
+    const d = addDays(gs, i), k = key(d), items = list.filter(m => m.date === k);
+    html += `<div class="mc ${d.getMonth()!==c.getMonth()?'out':''} ${k===tk?'today':''}" data-mday="${k}"><span class="mn">${d.getDate()}</span>`;
+    items.slice(0,3).forEach(m => html += `<button class="mchip ${m.status==='已取消'?'cancelled':''}" data-open="${m.id}"><span class="dot d-${TAGS[m.tag]||'blue'}"></span><span class="mono">${esc(m.start)}</span><span class="t">${esc(m.title||'未命名會議')}</span>${cs.has(m.id)?`<span class="warn">${icon('warn')}</span>`:''}</button>`);
+    if (items.length > 3) html += `<button class="more" data-goweek="${k}">還有 ${items.length-3} 場</button>`;
+    html += `</div>`;
+  }
+  return html + `</div></div>`;
+}
+
+function renderTable(list, cs) {
+  const f = state.tableFilter;
+  const rows = list.filter(m => f === 'all' || (f === 'upcoming' ? !isPast(m) : f === 'past' ? isPast(m) : m.status === '待定'));
+  const groups = {};
+  rows.forEach(m => { const d = parseKey(m.date), ws = key(startOfWeek(d)); (groups[ws] ??= []).push(m); });
+  const keys = Object.keys(groups).sort(); if (f === 'past') keys.reverse();
+  const thisWs = key(startOfWeek(new Date()));
+  let body = '';
+  for (const g of keys) {
+    const ws = parseKey(g), we = addDays(ws, 6);
+    const name = g === thisWs ? '本週' : g === key(addDays(parseKey(thisWs),7)) ? '下週' : g === key(addDays(parseKey(thisWs),-7)) ? '上週' : `${ws.getMonth()+1}/${ws.getDate()} – ${we.getMonth()+1}/${we.getDate()}`;
+    body += `<tr class="grp"><td colspan="7">${name} · ${groups[g].length} 場</td></tr>`;
+    const arr = f === 'past' ? [...groups[g]].reverse() : groups[g];
+    body += arr.map(m => { const d = parseKey(m.date); return `<tr data-open="${m.id}" class="${m.status==='已取消'?'cancelled':''}">
+      <td class="name"><div class="row-t"><span class="t">${esc(m.title||'未命名會議')}</span>${warnHtml(m,cs)}${exHtml(m)}</div></td>
+      <td class="mono">${d.getMonth()+1}/${pad(d.getDate())} <span class="muted" style="font-family:var(--font-ui);color:var(--muted)">週${wd(d)}</span></td>
+      <td class="mono">${esc(m.start)}–${esc(m.end)}</td>
+      <td>${tagHtml(m.tag)}</td><td>${statusHtml(m.status)}</td>
+      <td class="muted">${esc(m.attendees)}</td><td class="muted">${esc(m.location)}</td></tr>`; }).join('');
+  }
+  return `<div class="tbl-wrap"><table><thead><tr>
+    <th>名稱</th><th>日期</th><th>時間</th><th>標籤</th><th>狀態</th><th>參與者</th><th>地點／連結</th></tr></thead>
+    <tbody>${body || `<tr><td colspan="7" style="color:var(--muted);padding:18px 10px;cursor:default">沒有符合條件的會議</td></tr>`}</tbody></table></div>
+    <button class="add-row" data-act="new">${icon('plus')}新增會議</button>`;
+}
+
+/* ---------- main render ---------- */
+function render() {
+  const now = new Date();
+  document.getElementById('ws-date').textContent = `${now.getMonth()+1} 月 ${now.getDate()} 日 星期${wd(now)}`;
+  document.querySelectorAll('[data-view]').forEach(b => b.classList.toggle('on', b.dataset.view === state.view));
+  document.getElementById('crumb-view').textContent = VIEWS[state.view];
+
+  const sync = document.getElementById('sync');
+  sync.className = 'sync' + (store.mode === 'db' ? ' cloud' : '');
+  sync.querySelector('span').textContent = !state.loaded ? '載入中…' : store.mode === 'db' ? '已同步到雲端' : '資料存在這台裝置的瀏覽器';
+
+  const all = state.meetings, cs = conflictSet(all), tk = key(now);
+  const ws = key(startOfWeek(now)), we = key(addDays(startOfWeek(now), 6));
+  document.getElementById('cnt-today').textContent = all.filter(m => m.date === tk && m.status !== '已取消').length || '';
+  document.getElementById('cnt-week').textContent = all.filter(m => m.date >= ws && m.date <= we && m.status !== '已取消').length || '';
+  document.getElementById('cnt-all').textContent = all.length || '';
+  document.getElementById('clear-ex').hidden = !all.some(m => m.example);
+
+  document.getElementById('side-tags').innerHTML = Object.entries(TAGS).map(([t,c]) =>
+    `<button class="nav-item ${state.tag===t?'on':''}" data-tag="${t}"><span class="dot d-${c}"></span>${t}<span class="count">${all.filter(m=>m.tag===t).length || ''}</span></button>`).join('');
+  const ups = all.filter(m => m.status !== '已取消' && !isPast(m)).sort(byTime).slice(0, 4);
+  document.getElementById('side-up').innerHTML = ups.length ? ups.map(m => { const d = parseKey(m.date); return `
+    <button data-open="${m.id}"><span class="dot d-${TAGS[m.tag]||'blue'}" style="margin-top:6px"></span><span class="t">${esc(m.title||'未命名會議')}</span>
+    <span class="w mono">${m.date===tk?'今天':`${d.getMonth()+1}/${d.getDate()} 週${wd(d)}`} ${esc(m.start)}</span></button>`; }).join('')
+    : `<div style="font-size:12.5px;color:var(--faint);padding:4px 8px">沒有待開的會議</div>`;
+
+  const fEl = document.getElementById('filters');
+  let chips = '';
+  if (state.view === 'table') chips += [['upcoming','即將到來'],['pending','待確認'],['past','已結束'],['all','全部']].map(([v,l]) => `<button class="chip ${state.tableFilter===v?'on':''}" data-tf="${v}">${l}</button>`).join('');
+  if (state.tag) chips += `<button class="chip on" data-tag="${state.tag}">標籤：${state.tag} ${icon('close')}</button>`;
+  fEl.innerHTML = chips; fEl.hidden = !chips;
+
+  const view = document.getElementById('view');
+  const prevScroll = document.getElementById('calwrap')?.scrollTop;
+  if (!state.loaded) { view.innerHTML = `<div class="empty"><p style="margin:0">正在載入你的會議…</p></div>`; return; }
+  const list = visible();
+  if (!all.length && state.view !== 'week' && state.view !== 'month') { view.innerHTML = emptyState(); return; }
+  view.innerHTML = state.view === 'today' ? renderToday(list, cs)
+    : state.view === 'week' ? renderWeek(list, cs)
+    : state.view === 'month' ? renderMonth(list, cs) : renderTable(list, cs);
+  if (state.view === 'week' && !all.length) view.insertAdjacentHTML('afterbegin', `<div style="margin-bottom:12px">${emptyState()}</div>`);
+  if (prevScroll != null && document.getElementById('calwrap')) document.getElementById('calwrap').scrollTop = prevScroll;
+}
+
+/* ---------- peek editor ---------- */
+function openPeek(id, focusTitle = false) {
+  if (state.openId && state.openId !== id) flush(state.openId);
+  const m = state.meetings.find(x => x.id === id); if (!m) return;
+  state.openId = id; state.confirmDel = false;
+  const peek = document.getElementById('peek');
+  const opts = (obj, cur) => Object.keys(obj).map(k => `<option ${k===cur?'selected':''}>${k}</option>`).join('');
+  peek.innerHTML = `
+    <div class="peek-top">
+      <button class="icon-btn" data-act="close-peek" aria-label="關閉">${icon('dbl')}</button>
+      <button class="btn" data-act="peek-week">在週曆中查看</button>
+      <div class="spacer"></div>
+      <span id="del-zone"><button class="btn danger" data-act="ask-del">${icon('trash')}刪除</button></span>
+    </div>
+    <div class="peek-body">
+      <textarea class="peek-title" id="f-title" rows="1" placeholder="未命名會議">${esc(m.title)}</textarea>
+      <div class="props">
+        <div class="pk">${icon('cal')}日期</div><div class="pv"><input type="date" id="f-date" value="${esc(m.date)}"></div>
+        <div class="pk">${icon('clock')}時間</div><div class="pv"><input type="time" id="f-start" step="900" value="${esc(m.start)}"><span style="color:var(--faint)">→</span><input type="time" id="f-end" step="900" value="${esc(m.end)}"><span class="dur" id="f-dur"></span></div>
+        <div class="pk">${icon('status')}狀態</div><div class="pv"><select id="f-status">${opts(STATUS, m.status)}</select></div>
+        <div class="pk">${icon('tag')}標籤</div><div class="pv"><select id="f-tag">${opts(TAGS, m.tag)}</select></div>
+        <div class="pk">${icon('people')}參與者</div><div class="pv"><input type="text" id="f-att" placeholder="以逗號分隔，例如 Amy, 陳經理" value="${esc(m.attendees)}"></div>
+        <div class="pk">${icon('pin')}地點／連結</div><div class="pv"><input type="text" id="f-loc" placeholder="會議室或視訊連結" value="${esc(m.location)}"></div>
+      </div>
+      <div id="f-conflict"></div>
+      <div class="hr"></div>
+      <h4>議程</h4>
+      <div class="agenda" id="f-agenda"></div>
+      <button class="add-row" style="padding-left:2px" data-act="add-agenda">${icon('plus')}新增議程項目</button>
+      <div class="hr"></div>
+      <h4>會議筆記</h4>
+      <textarea class="notes" id="f-notes" placeholder="記下決議、待辦或任何想法…">${esc(m.notes)}</textarea>
+    </div>`;
+  renderAgenda(m); peekMeta(m);
+  peek.hidden = false; document.getElementById('scrim').hidden = false;
+  autoGrow(document.getElementById('f-title'));
+  if (focusTitle) { const t = document.getElementById('f-title'); t.focus(); t.select(); }
+}
+function renderAgenda(m) {
+  document.getElementById('f-agenda').innerHTML = (m.agenda || []).map((a,i) => `
+    <div class="ag ${a.done?'done':''}"><input type="checkbox" data-ag-check="${i}" ${a.done?'checked':''} aria-label="完成">
+    <input type="text" data-ag-text="${i}" value="${esc(a.text)}" placeholder="議程項目"><button class="icon-btn x" data-ag-del="${i}" aria-label="移除">${icon('close')}</button></div>`).join('');
+}
+function peekMeta(m) {
+  document.getElementById('f-dur').textContent = durLabel(toMin(m.end) - toMin(m.start));
+  const others = state.meetings.filter(x => x.id !== m.id && x.date === m.date && x.status !== '已取消' && m.status !== '已取消' && toMin(x.start) < toMin(m.end) && toMin(m.start) < toMin(x.end));
+  document.getElementById('f-conflict').innerHTML = others.length ? `<div class="conflict-box">${icon('warn')}<div>和 ${others.map(o => `「${esc(o.title||'未命名會議')}」(${esc(o.start)}–${esc(o.end)})`).join('、')} 時間重疊。</div></div>` : '';
+}
+function closePeek() {
+  if (state.openId) flush(state.openId);
+  state.openId = null;
+  document.getElementById('peek').hidden = true;
+  if (document.getElementById('modal').hidden) document.getElementById('scrim').hidden = true;
+}
+const autoGrow = el => { el.style.height = 'auto'; el.style.height = el.scrollHeight + 'px'; };
+const current = () => state.meetings.find(x => x.id === state.openId);
+function edit(patch, delay = 500) {
+  const m = current(); if (!m) return;
+  const next = { ...m, ...patch, updatedAt: Date.now() };
+  if (next.example && ('title' in patch)) delete next.example;
+  upsert(next, delay); peekMeta(next); render();
+}
+
+document.getElementById('peek').addEventListener('input', e => {
+  const t = e.target, m = current(); if (!m) return;
+  if (t.id === 'f-title') { autoGrow(t); edit({ title: t.value }); }
+  else if (t.id === 'f-att') edit({ attendees: t.value });
+  else if (t.id === 'f-loc') edit({ location: t.value });
+  else if (t.id === 'f-notes') edit({ notes: t.value }, 800);
+  else if (t.dataset.agText != null) { const ag = (m.agenda||[]).map(a => ({...a})); ag[+t.dataset.agText].text = t.value; edit({ agenda: ag }, 600); }
+});
+document.getElementById('peek').addEventListener('change', e => {
+  const t = e.target, m = current(); if (!m) return;
+  if (t.id === 'f-date' && t.value) edit({ date: t.value }, 0);
+  else if (t.id === 'f-start' && t.value) {
+    const len = Math.max(15, toMin(m.end) - toMin(m.start));
+    const end = fromMin(Math.min(toMin(t.value) + len, 23*60 + 59));
+    document.getElementById('f-end').value = end; edit({ start: t.value, end }, 0);
+  }
+  else if (t.id === 'f-end' && t.value) {
+    if (toMin(t.value) <= toMin(m.start)) { toast('結束時間要晚於開始時間'); t.value = m.end; return; }
+    edit({ end: t.value }, 0);
+  }
+  else if (t.id === 'f-status') edit({ status: t.value }, 0);
+  else if (t.id === 'f-tag') edit({ tag: t.value }, 0);
+  else if (t.dataset.agCheck != null) { const ag = (m.agenda||[]).map(a => ({...a})); ag[+t.dataset.agCheck].done = t.checked; edit({ agenda: ag }, 0); t.closest('.ag').classList.toggle('done', t.checked); }
+});
+document.getElementById('peek').addEventListener('keydown', e => {
+  if (e.target.id === 'f-title' && e.key === 'Enter') { e.preventDefault(); document.getElementById('f-att').focus(); }
+  if (e.target.dataset.agText != null && e.key === 'Enter') { e.preventDefault(); addAgenda(+e.target.dataset.agText + 1); }
+});
+function addAgenda(at) {
+  const m = current(); const ag = (m.agenda||[]).map(a => ({...a}));
+  const i = at ?? ag.length; ag.splice(i, 0, { text: '', done: false });
+  edit({ agenda: ag }, 600); renderAgenda(current());
+  document.querySelector(`[data-ag-text="${i}"]`)?.focus();
+}
+
+/* ---------- creating ---------- */
+function newMeeting(date, start, len = 60) {
+  const now = new Date();
+  if (!date) {
+    date = key(state.view === 'today' ? now : state.cursor);
+    if (date === key(now)) { const n = Math.ceil((nowMin() + 1) / 30) * 30; start = n + len <= 23*60 ? fromMin(n) : '09:00'; if (n + len > 23*60) date = key(addDays(now,1)); }
+    else start = '10:00';
+  }
+  const m = { id: uid(), title: '', date, start, end: fromMin(Math.min(toMin(start) + len, 23*60+59)), tag: '工作', status: '已確認', attendees: '', location: '', notes: '', agenda: [], createdAt: Date.now() };
+  upsert(m); render(); openPeek(m.id, true);
+}
+
+function examples() {
+  const ws = startOfWeek(new Date()), d = n => key(addDays(ws, n));
+  return [
+    ['週一站會', 0, '09:30', '10:00', '團隊', '已確認', '產品組全員', 'Google Meet', [['上週進度', true], ['本週重點', false]]],
+    ['Q4 預算審查', 1, '14:00', '15:30', '工作', '已確認', '財務部 林經理', '3F 大會議室', [['各部門預算差異', false], ['行銷費用調整', false]]],
+    ['客戶簡報：新版儀表板', 2, '10:00', '11:00', '客戶', '已確認', 'Amy, David', 'Zoom', [['展示新功能', false], ['收集回饋', false]]],
+    ['設計評審', 2, '10:30', '11:30', '團隊', '待定', '設計組', '2F 小會議室', []],
+    ['前端工程師面試', 2, '15:00', '16:00', '面試', '已確認', '應徵者 王小明', 'Google Meet', [['自我介紹', false], ['技術題', false], ['反問時間', false]]],
+    ['一對一：Jason', 3, '11:00', '11:30', '工作', '已確認', 'Jason', '咖啡區', []],
+    ['合作夥伴午餐', 3, '12:30', '13:30', '客戶', '待定', '永豐團隊', '信義區餐廳', []],
+    ['週五回顧', 4, '16:00', '17:00', '團隊', '已確認', '產品組全員', 'Google Meet', []],
+    ['健身房', 5, '10:00', '11:00', '個人', '已確認', '', '', []],
+    ['月度規劃', 7, '10:00', '11:30', '工作', '已確認', '主管群', '3F 大會議室', []],
+  ].map(([title, off, start, end, tag, status, attendees, location, ag]) => ({
+    id: uid(), title, date: d(off), start, end, tag, status, attendees, location, notes: '',
+    agenda: ag.map(([text, done]) => ({ text, done })), example: true, createdAt: Date.now()
+  }));
+}
+
+/* ---------- free-slot finder ---------- */
+function freeSlots() {
+  const ws = addDays(startOfWeek(new Date()), state.gapWeek * 7), out = [], from = 9*60, to = 18*60, dur = state.gapDur;
+  const today = key(new Date());
+  for (let i = 0; i < (state.gapWeekend ? 7 : 5); i++) {
+    const k = key(addDays(ws, i)); if (k < today) continue;
+    let t = k === today ? Math.max(from, Math.ceil(nowMin() / 15) * 15) : from;
+    const busy = state.meetings.filter(m => m.date === k && m.status !== '已取消').map(m => [toMin(m.start), toMin(m.end)]).sort((a,b) => a[0]-b[0]);
+    const wins = [];
+    for (const [s,e] of busy) { if (Math.min(s,to) - t >= dur) wins.push([t, Math.min(s,to)]); t = Math.max(t, e); }
+    if (to - t >= dur) wins.push([t, to]);
+    out.push({ k, wins });
+  }
+  return out;
+}
+function renderModal() {
+  const days = freeSlots();
+  const body = days.length ? days.map(({k, wins}) => { const d = parseKey(k); return `<div class="slot-day">${d.getMonth()+1} 月 ${d.getDate()} 日 週${wd(d)}</div>` +
+    (wins.length ? wins.map(([s,e]) => `<div class="slot"><span class="mono">${fromMin(s)} – ${fromMin(e)}</span><span class="len">可用 ${durLabel(e-s)}</span><button class="btn ghost-border" data-slot="${k}|${fromMin(s)}">排在 ${fromMin(s)}</button></div>`).join('')
+      : `<div class="slot"><span class="len">${k === key(new Date()) ? '今天 18:00 前已沒有空檔' : '這天 9:00–18:00 已排滿'}</span></div>`); }).join('')
+    : `<div class="slot"><span class="len">這週已經過完了，看看下週吧。</span></div>`;
+  const m = document.getElementById('modal');
+  m.innerHTML = `<div class="modal-head"><h3>找空檔</h3><button class="icon-btn" data-act="close-modal" aria-label="關閉">${icon('close')}</button></div>
+    <div class="modal-opts">
+      <label>會議長度 <select id="g-dur">${[30,45,60,90,120].map(v => `<option value="${v}" ${v===state.gapDur?'selected':''}>${durLabel(v)}</option>`).join('')}</select></label>
+      <label>範圍 <select id="g-week"><option value="0" ${!state.gapWeek?'selected':''}>本週</option><option value="1" ${state.gapWeek?'selected':''}>下週</option></select></label>
+      <label><input type="checkbox" id="g-wkend" ${state.gapWeekend?'checked':''}> 含週末</label>
+      <span style="flex-basis:100%;font-size:12px;color:var(--faint)">以 9:00–18:00 工作時段計算，已取消的會議不佔時段。</span>
+    </div>
+    <div class="slots">${body}</div>`;
+}
+document.getElementById('modal').addEventListener('change', e => {
+  if (e.target.id === 'g-dur') state.gapDur = +e.target.value;
+  if (e.target.id === 'g-week') state.gapWeek = +e.target.value;
+  if (e.target.id === 'g-wkend') state.gapWeekend = e.target.checked;
+  renderModal();
+});
+function closeModal() { document.getElementById('modal').hidden = true; if (document.getElementById('peek').hidden) document.getElementById('scrim').hidden = true; }
+
+/* ---------- global events ---------- */
+function setView(v) {
+  state.view = v; try { localStorage.setItem(LS_VIEW, v); } catch {}
+  document.getElementById('app').classList.remove('nav-open');
+  render();
+  if (v === 'week') scrollWeek();
+}
+function scrollWeek() {
+  const w = document.getElementById('calwrap'); if (!w) return;
+  const first = state.meetings.filter(m => { const ws = key(startOfWeek(state.cursor)); return m.date >= ws && m.date <= key(addDays(startOfWeek(state.cursor),6)); }).map(m => toMin(m.start));
+  const target = Math.min(nowMin(), ...(first.length ? first : [9*60])) - 60;
+  w.style.maxHeight = '70vh'; w.style.overflowY = 'auto';
+  w.scrollTop = Math.max(0, (target - DAY_START*60) / 60 * H);
+}
+let toastT;
+function toast(msg) { const t = document.getElementById('toast'); t.textContent = msg; t.hidden = false; clearTimeout(toastT); toastT = setTimeout(() => t.hidden = true, 2600); }
+
+document.addEventListener('click', e => {
+  const el = e.target.closest('[data-act],[data-view],[data-open],[data-tag],[data-tf],[data-slot],[data-ag-del],[data-goweek]');
+  if (!el) {
+    const col = e.target.closest('.daycol');
+    if (col && e.target === col) {
+      const rect = col.getBoundingClientRect(), y = e.clientY - rect.top;
+      const mins = DAY_START*60 + Math.floor(y / H * 2) * 30;
+      newMeeting(col.dataset.day, fromMin(Math.min(mins, 22*60)));
+      return;
+    }
+    const mc = e.target.closest('.mc');
+    if (mc && (e.target === mc || e.target.classList.contains('mn'))) { newMeeting(mc.dataset.mday, '10:00'); return; }
+    if (e.target.id === 'scrim') { closePeek(); closeModal(); }
+    return;
+  }
+  if (el.dataset.view) return setView(el.dataset.view);
+  if (el.dataset.open) { if (el.closest('.sidebar')) document.getElementById('app').classList.remove('nav-open'); return openPeek(el.dataset.open); }
+  if (el.dataset.tag) { state.tag = state.tag === el.dataset.tag ? '' : el.dataset.tag; return render(); }
+  if (el.dataset.tf) { state.tableFilter = el.dataset.tf; return render(); }
+  if (el.dataset.goweek) { state.cursor = parseKey(el.dataset.goweek); return setView('week'); }
+  if (el.dataset.slot) { const [k, s] = el.dataset.slot.split('|'); closeModal(); return newMeeting(k, s, state.gapDur); }
+  if (el.dataset.agDel != null) { const ag = (current().agenda||[]).filter((_,i) => i !== +el.dataset.agDel); edit({ agenda: ag }, 0); return renderAgenda(current()); }
+  const act = el.dataset.act;
+  if (act === 'new') { document.getElementById('app').classList.remove('nav-open'); newMeeting(); }
+  else if (act === 'toggle-nav') document.getElementById('app').classList.toggle('nav-open');
+  else if (act === 'focus-search') { document.getElementById('app').classList.remove('nav-open'); document.getElementById('q').focus(); }
+  else if (act === 'prev' || act === 'next') {
+    const dir = act === 'prev' ? -1 : 1;
+    state.cursor = state.view === 'month' ? new Date(state.cursor.getFullYear(), state.cursor.getMonth() + dir, 1) : addDays(state.cursor, 7*dir);
+    render(); if (state.view === 'week') scrollWeek();
+  }
+  else if (act === 'go-today') { state.cursor = dayOnly(new Date()); render(); if (state.view === 'week') scrollWeek(); }
+  else if (act === 'close-peek') closePeek();
+  else if (act === 'peek-week') { const m = current(); if (m) { state.cursor = parseKey(m.date); closePeek(); setView('week'); } }
+  else if (act === 'ask-del') document.getElementById('del-zone').innerHTML = `<span class="confirm">確定刪除？<button class="btn danger" data-act="do-del">刪除</button><button class="btn" data-act="cancel-del">取消</button></span>`;
+  else if (act === 'cancel-del') document.getElementById('del-zone').innerHTML = `<button class="btn danger" data-act="ask-del">${icon('trash')}刪除</button>`;
+  else if (act === 'do-del') { const id = state.openId; state.openId = null; removeMeeting(id); closePeek(); render(); toast('已刪除會議'); }
+  else if (act === 'add-agenda') addAgenda();
+  else if (act === 'gaps') { renderModal(); document.getElementById('modal').hidden = false; document.getElementById('scrim').hidden = false; }
+  else if (act === 'close-modal') closeModal();
+  else if (act === 'load-examples') { examples().forEach(m => upsert(m)); render(); toast('已載入 10 場範例會議'); }
+  else if (act === 'export') {
+    const blob = new Blob([JSON.stringify({ app: 'meeting-desk', version: 1, exportedAt: new Date().toISOString(), meetings: state.meetings }, null, 2)], { type: 'application/json' });
+    const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `meetings-${key(new Date())}.json`;
+    document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+    toast(`已匯出 ${state.meetings.length} 場會議`);
+  }
+  else if (act === 'import') document.getElementById('import-file').click();
+  else if (act === 'clear-examples') { state.meetings.filter(m => m.example).forEach(m => removeMeeting(m.id)); render(); toast('已清除範例會議'); }
+});
+document.getElementById('import-file').addEventListener('change', async e => {
+  const f = e.target.files[0]; e.target.value = ''; if (!f) return;
+  try {
+    const data = JSON.parse(await f.text());
+    const list = Array.isArray(data) ? data : data.meetings;
+    if (!Array.isArray(list)) throw 0;
+    let n = 0;
+    for (const m of list) {
+      if (!m || !/^\d{4}-\d{2}-\d{2}$/.test(m.date) || !/^\d{2}:\d{2}$/.test(m.start) || !/^\d{2}:\d{2}$/.test(m.end)) continue;
+      upsert({ id: String(m.id || uid()), title: String(m.title || ''), date: m.date, start: m.start, end: m.end,
+        tag: TAGS[m.tag] ? m.tag : '工作', status: STATUS[m.status] ? m.status : '已確認',
+        attendees: String(m.attendees || ''), location: String(m.location || ''), notes: String(m.notes || ''),
+        agenda: Array.isArray(m.agenda) ? m.agenda.map(a => ({ text: String(a.text || ''), done: !!a.done })) : [],
+        ...(m.example ? { example: true } : {}), createdAt: m.createdAt || Date.now() });
+      n++;
+    }
+    render(); toast(n ? `已匯入 ${n} 場會議（相同的會議會被覆蓋）` : '檔案裡沒有可匯入的會議');
+  } catch { toast('無法讀取這個檔案，請選擇從這裡匯出的 .json 備份'); }
+});
+document.getElementById('q').addEventListener('input', e => { state.q = e.target.value; render(); });
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') { closePeek(); closeModal(); document.getElementById('app').classList.remove('nav-open'); }
+  const typing = /INPUT|TEXTAREA|SELECT/.test(document.activeElement?.tagName);
+  if (typing || e.metaKey || e.ctrlKey || e.altKey) return;
+  if (e.key === 'n') { e.preventDefault(); newMeeting(); }
+  else if (e.key === '/') { e.preventDefault(); document.getElementById('q').focus(); }
+  else if (e.key === 't') setView('today');
+  else if (e.key === 'w') setView('week');
+  else if (e.key === 'm') setView('month');
+});
+setInterval(() => { if (state.loaded) render(); }, 60000);
+
+render();
+store.init().then(() => { if (state.view === 'week') scrollWeek(); });
+</script>
+
+</body>
+</html>
